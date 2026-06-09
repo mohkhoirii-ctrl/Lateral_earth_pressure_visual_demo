@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lateral Earth Pressure — Interactive</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#f5f4f0; --surface:#ffffff; --surface2:#f0efe9;
+    --border:rgba(0,0,0,0.12); --border2:rgba(0,0,0,0.22);
+    --text:#2c2c2a; --text2:#6a6a66; --text3:#9a9a94;
+    --ko:#5F5E5A; --ka:#BA7517; --kp:#185FA5;
+    --accent:#E24B4A; --surcharge:#7B3FA0; --cohesion:#1A8A5A;
+    --radius:10px; --radius-lg:14px;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#18181a; --surface:#242426; --surface2:#2e2e30;
+    --border:rgba(255,255,255,0.10); --border2:rgba(255,255,255,0.20);
+    --text:#e8e8e2; --text2:#9a9a94; --text3:#6a6a66;
+    --ko:#aaa9a0; --ka:#EF9F27; --kp:#4a9fe0;
+    --accent:#f06060; --surcharge:#b07ad0; --cohesion:#3dbb84;
+  }}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;gap:16px;}
+  h1{font-size:20px;font-weight:600;letter-spacing:-0.3px;}
+  .subtitle{font-size:13px;color:var(--text3);margin-top:2px;text-align:center;}
+  .card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);
+    padding:16px;width:100%;max-width:820px;}
+  .controls{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;}
+  .ctrl-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:160px;}
+  .ctrl-label{font-size:12px;color:var(--text2);display:flex;justify-content:space-between;}
+  .ctrl-label strong{color:var(--text);font-weight:600;}
+  input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;
+    background:var(--border2);outline:none;cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;
+    border-radius:50%;background:var(--surface);border:2px solid var(--text);
+    cursor:ew-resize;transition:border-color 0.15s;}
+  input[type=range]:hover::-webkit-slider-thumb{border-color:var(--accent);}
+  #qSlider::-webkit-slider-thumb{border-color:var(--surcharge);}
+  #cSlider::-webkit-slider-thumb{border-color:var(--cohesion);}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;
+    border:1.5px solid transparent;transition:border-color 0.2s;cursor:default;}
+  .badge-ko{background:var(--surface2);color:var(--ko);border-color:var(--border);}
+  .badge-ka{background:#faeeda;color:#854F0B;}
+  .badge-kp{background:#e6f1fb;color:#185FA5;}
+  .badge-q {background:#f3eaf8;color:#7B3FA0;border-color:var(--border);}
+  .badge-c {background:#e6f7ef;color:#1A8A5A;border-color:var(--border);}
+  @media(prefers-color-scheme:dark){
+    .badge-ka{background:#3a2a0a;color:#EF9F27;}
+    .badge-kp{background:#0a1e36;color:#4a9fe0;}
+    .badge-q {background:#2a1a36;color:#b07ad0;}
+    .badge-c {background:#0a2218;color:#3dbb84;}
+  }
+  .badge.active{border-width:2px;}
+  .badge-ko.active{border-color:var(--ko);}
+  .badge-ka.active{border-color:var(--ka);}
+  .badge-kp.active{border-color:var(--kp);}
+  #mainCanvas{display:block;width:100%;border-radius:var(--radius);cursor:ew-resize;touch-action:none;}
+  .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .info-item{background:var(--surface2);border-radius:var(--radius);padding:10px 12px;text-align:center;}
+  .info-val{font-size:19px;font-weight:600;}
+  .info-lbl{font-size:11px;color:var(--text3);margin-top:2px;}
+  .info-formula{font-size:10px;color:var(--text3);font-style:italic;margin-top:2px;}
+  .info-extra{font-size:10px;margin-top:3px;font-weight:500;}
+  .hint{font-size:11px;color:var(--text3);text-align:center;margin-top:4px;}
+  .section-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;
+    letter-spacing:0.5px;margin-bottom:8px;}
+  hr.divider{border:none;border-top:0.5px solid var(--border);margin:10px 0;}
+</style>
+</head>
+<body>
+
+<div style="text-align:center">
+  <h1>Lateral Earth Pressure — c-φ Soil</h1>
+  <div class="subtitle">Foundation Engineering · Interactive Demo · Das (2011) · Rankine Theory</div>
+</div>
+
+<div class="card">
+  <div class="section-title">Soil &amp; Loading Parameters</div>
+  <div class="controls">
+    <!-- ΔH -->
+    <div class="ctrl-group" style="min-width:200px">
+      <div class="ctrl-label"><span>Wall displacement ΔH</span><strong id="deltaDisplay">0 mm</strong></div>
+      <input type="range" id="deltaSlider" min="-80" max="80" value="0" step="1">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px">
+        <span>← Active</span><span>At-Rest</span><span>Passive →</span>
+      </div>
+    </div>
+    <!-- φ -->
+    <div class="ctrl-group" style="max-width:155px;min-width:120px">
+      <div class="ctrl-label"><span>Friction angle φ</span><strong id="phiDisplay">30°</strong></div>
+      <input type="range" id="phiSlider" min="20" max="40" value="30" step="1">
+    </div>
+    <!-- c cohesion -->
+    <div class="ctrl-group" style="max-width:170px;min-width:130px">
+      <div class="ctrl-label" style="color:var(--cohesion)">
+        <span>Cohesion <em>c</em></span>
+        <strong id="cDisplay" style="color:var(--cohesion)">0 kPa</strong>
+      </div>
+      <input type="range" id="cSlider" min="0" max="50" value="0" step="2">
+    </div>
+    <!-- q surcharge -->
+    <div class="ctrl-group" style="max-width:170px;min-width:130px">
+      <div class="ctrl-label" style="color:var(--surcharge)">
+        <span>Surcharge <em>q</em></span>
+        <strong id="qDisplay" style="color:var(--surcharge)">0 kPa</strong>
+      </div>
+      <input type="range" id="qSlider" min="0" max="100" value="0" step="5">
+    </div>
+    <!-- badges -->
+    <div class="badges">
+      <span class="badge badge-ko" id="badge-ko">At-Rest</span>
+      <span class="badge badge-ka" id="badge-ka">Active</span>
+      <span class="badge badge-kp" id="badge-kp">Passive</span>
+      <span class="badge badge-q"  id="badge-q">q = 0</span>
+      <span class="badge badge-c"  id="badge-c">c = 0</span>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="padding:12px">
+  <canvas id="mainCanvas"></canvas>
+  <div class="hint">
+    Drag slider or click &amp; drag canvas to move wall ·
+    <span style="color:var(--surcharge)">■ Purple</span> = surcharge q ·
+    <span style="color:var(--cohesion)">■ Green</span> = cohesion c reduction/addition
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">Coefficient Values</div>
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="info-val" id="val-ko" style="color:var(--ko)">—</div>
+      <div class="info-lbl">Ko (at-rest)</div>
+      <div class="info-formula">1 − sin φ</div>
+      <div class="info-extra" id="extra-ko" style="color:var(--surcharge)"></div>
+    </div>
+    <div class="info-item">
+      <div class="info-val" id="val-ka" style="color:var(--ka)">—</div>
+      <div class="info-lbl">Ka (active)</div>
+      <div class="info-formula">tan²(45 − φ/2)</div>
+      <div class="info-extra" id="extra-ka" style="color:var(--cohesion)"></div>
+    </div>
+    <div class="info-item">
+      <div class="info-val" id="val-kp" style="color:var(--kp)">—</div>
+      <div class="info-lbl">Kp (passive)</div>
+      <div class="info-formula">tan²(45 + φ/2)</div>
+      <div class="info-extra" id="extra-kp" style="color:var(--cohesion)"></div>
+    </div>
+  </div>
+  <hr class="divider">
+  <div id="formula-box" style="font-size:11px;color:var(--text2);line-height:1.8;font-family:monospace;padding:4px 2px"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('mainCanvas');
+const ctx    = canvas.getContext('2d');
+
+const CW = 760, CH = 460;
+canvas.width  = CW;
+canvas.height = CH;
+
+// Layout constants
+const WALL_X     = 300;
+const WALL_TOP   = 80;
+const WALL_BOT   = 370;
+const WALL_H     = WALL_BOT - WALL_TOP;
+const WALL_W     = 34;
+const FOOT_Y     = WALL_BOT;
+const FOOT_H     = 18;
+const FOOT_W     = 100;
+const SOIL_LEFT  = WALL_X + WALL_W / 2;
+const SOIL_RIGHT = CW - 20;
+const GROUND_Y   = WALL_TOP;
+const Q_MAX_H    = 36;
+const Q_MAX_VAL  = 100;
+
+// Scale: pixel width per kPa (reference: Ko≈0.5 → 80px at H)
+const PX_PER_KPA = 1.55;
+
+let wedgeProgress = 0, wedgeTarget = 0, rafId = null, lastTime = null;
+
+function isDark(){ return window.matchMedia('(prefers-color-scheme:dark)').matches; }
+
+function getColors(){
+  const d = isDark();
+  return {
+    bg:           d?'#1c1c1e':'#f0efe9',
+    wallFill:     d?'#4a4a48':'#d6d4ca',
+    wallStroke:   d?'#7a7a74':'#888880',
+    footing:      d?'#3c3c3a':'#c4c2b8',
+    soilFill:     d?'#4a3c28':'#c8a870',
+    soilHatch:    d?'#3a2c1c':'#a87838',
+    groundLine:   d?'#8a6840':'#8a6030',
+    pressColor:   { rest:'#888780', active:'#BA7517', passive:'#185FA5' },
+    pressFill:    {
+      rest:    d?'rgba(140,138,130,0.18)':'rgba(136,135,128,0.14)',
+      active:  d?'rgba(239,159,39,0.20)' :'rgba(239,159,39,0.16)',
+      passive: d?'rgba(55,138,221,0.20)' :'rgba(55,138,221,0.16)',
+    },
+    qColor:       d?'#b07ad0':'#7B3FA0',
+    qFill:        d?'rgba(176,122,208,0.18)':'rgba(123,63,160,0.13)',
+    cColor:       d?'#3dbb84':'#1A8A5A',
+    cFill:        d?'rgba(61,187,132,0.15)':'rgba(26,138,90,0.12)',
+    cNegFill:     d?'rgba(61,187,132,0.08)':'rgba(26,138,90,0.07)',
+    wedgeStroke:  { active:'#BA7517', passive:'#185FA5' },
+    wedgeFill:    {
+      active:  d?'rgba(239,159,39,0.10)':'rgba(239,159,39,0.08)',
+      passive: d?'rgba(55,138,221,0.10)':'rgba(55,138,221,0.08)',
+    },
+    deltaArrow:   '#E24B4A',
+    textSecondary:d?'#9a9894':'#888780',
+    angleArc:     d?'rgba(255,200,80,0.8)':'rgba(160,100,0,0.75)',
+  };
+}
+
+// ── State computation ─────────────────────────────────────────────────────────
+function getState(){
+  const delta = parseInt(document.getElementById('deltaSlider').value);
+  const phi   = parseInt(document.getElementById('phiSlider').value);
+  const c     = parseInt(document.getElementById('cSlider').value);
+  const q     = parseInt(document.getElementById('qSlider').value);
+  const phiR  = phi * Math.PI / 180;
+
+  const Ko = 1 - Math.sin(phiR);
+  const Ka = Math.pow(Math.tan((45 - phi/2)*Math.PI/180), 2);
+  const Kp = Math.pow(Math.tan((45 + phi/2)*Math.PI/180), 2);
+
+  const sqrtKa = Math.sqrt(Ka);
+  const sqrtKp = Math.sqrt(Kp);
+
+  const t = delta / 80;
+  let K, mode;
+  if      (delta === 0) { K = Ko; mode = 'rest'; }
+  else if (delta  <  0) { K = Ko - (Ko-Ka)*Math.min(-t,1); mode = 'active'; }
+  else                  { K = Ko + (Kp-Ko)*Math.min(t,1);  mode = 'passive'; }
+
+  // Cohesion term (px units, symbolic only used for labelling)
+  // Active:  σ'h = K·q + K·γ·z  − 2c√Ka  (may go negative → clamp to 0)
+  // Passive: σ'h = K·q + K·γ·z  + 2c√Kp
+  // At-rest: no cohesion adjustment in Rankine at-rest (c irrelevant for Ko)
+  const cTermActive  = 2 * c * sqrtKa;   // kPa, to subtract
+  const cTermPassive = 2 * c * sqrtKp;   // kPa, to add
+
+  // For active: depth at which σ'h first becomes positive (tension crack depth zc)
+  // K·γ·zc + K·q = 2c√Ka  →  zc = (2c√Ka − K·q) / (K·γ)
+  // We work in px-scaled widths. Define a "reference" 1-unit depth = WALL_H px → K·γ·H in kPa is "K·γH"
+  // Since we only show symbolic, we just track pixel offsets
+  // px per kPa constant PX_PER_KPA
+  const cTopPxActive  = cTermActive  * PX_PER_KPA;  // horizontal px to subtract at top
+  const cTopPxPassive = cTermPassive * PX_PER_KPA;  // horizontal px to add at top (and bottom)
+
+  // Surcharge contribution (px)
+  const Kq     = mode === 'rest' ? Ko : mode === 'active' ? Ka : Kp;
+  const sigma_q = Kq * q;
+  const qPx    = sigma_q * PX_PER_KPA;
+
+  // Soil triangle: bottom px width proportional to K·γ·H
+  // We use Ko=0.5 ref → 0.5*PX_PER_KPA*H... H is abstract.
+  // We fix visual scale: Ko=0.5 → triW_ref = 80px at bottom
+  const REF_K   = 0.5;
+  const REF_TRI = 80;
+  const triW    = (K / REF_K) * REF_TRI;   // bottom triangle width in px (soil component)
+
+  // ── Trapezoid corners (px offsets from wall face SOIL_LEFT) ──────────────
+  // Without cohesion:
+  //   topW = qPx          (at z=0)
+  //   botW = qPx + triW   (at z=H)
+  //
+  // Active with cohesion (subtract cTopPxActive uniformly):
+  //   net_topW = max(0, qPx - cTopPxActive)
+  //   net_botW = max(0, qPx + triW - cTopPxActive)
+  //   The cohesion shifts the whole shape left; where it goes <0 we clamp
+  //
+  // Passive with cohesion (add cTopPxPassive uniformly):
+  //   net_topW = qPx + cTopPxPassive
+  //   net_botW = qPx + triW + cTopPxPassive
+
+  let topW_raw, botW_raw, topW, botW, cPxApplied, hasNegativeZone, zcFrac;
+
+  if (mode === 'active' && c > 0) {
+    topW_raw = qPx - cTopPxActive;
+    botW_raw = qPx + triW - cTopPxActive;
+    // Fraction of wall height in tension zone (where net pressure < 0)
+    // Linear interpolation: at z=0 → topW_raw, at z=H → botW_raw
+    // Zero crossing at frac where topW_raw + (botW_raw-topW_raw)*frac = 0
+    hasNegativeZone = topW_raw < 0;
+    if (hasNegativeZone && botW_raw > 0) {
+      zcFrac = -topW_raw / (botW_raw - topW_raw); // fraction of H where pressure = 0
+    } else {
+      zcFrac = 0;
+    }
+    topW = Math.max(0, topW_raw);
+    botW = Math.max(0, botW_raw);
+    cPxApplied = cTopPxActive;
+  } else if (mode === 'passive' && c > 0) {
+    topW_raw = qPx + cTopPxPassive;
+    botW_raw = qPx + triW + cTopPxPassive;
+    topW = topW_raw;
+    botW = botW_raw;
+    hasNegativeZone = false;
+    zcFrac = 0;
+    cPxApplied = cTopPxPassive;
+  } else {
+    topW = qPx;
+    botW = qPx + triW;
+    hasNegativeZone = false;
+    zcFrac = 0;
+    cPxApplied = 0;
+  }
+
+  return {
+    delta, phi, phiR, c, q, Ko, Ka, Kp, sqrtKa, sqrtKp,
+    K, mode, Kq, sigma_q,
+    qPx, triW, cPxApplied, cTermActive, cTermPassive,
+    topW, botW, topW_raw, botW_raw,
+    hasNegativeZone, zcFrac,
+  };
+}
+
+// ── Background ────────────────────────────────────────────────────────────────
+function drawBackground(c){
+  ctx.fillStyle = c.bg; ctx.fillRect(0,0,CW,CH);
+}
+
+// ── Surcharge block above ground ──────────────────────────────────────────────
+function drawSurchargeBlock(c, st){
+  if (st.q <= 0) return;
+  const qH = Math.max(4,(st.q/Q_MAX_VAL)*Q_MAX_H);
+  const rx = SOIL_LEFT, ry = GROUND_Y - qH, rw = SOIL_RIGHT - SOIL_LEFT;
+  ctx.fillStyle = c.qFill; ctx.fillRect(rx,ry,rw,qH);
+  ctx.strokeStyle = c.qColor; ctx.lineWidth = 1.5; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(rx,ry); ctx.lineTo(rx+rw,ry); ctx.stroke(); ctx.setLineDash([]);
+  const nArr = Math.floor(rw/28);
+  for (let i=0;i<nArr;i++){
+    const ax = rx+(i+0.5)*(rw/nArr);
+    ctx.strokeStyle = c.qColor; ctx.fillStyle = c.qColor; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(ax,ry); ctx.lineTo(ax,GROUND_Y-1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax,GROUND_Y-1); ctx.lineTo(ax-4,GROUND_Y-8); ctx.lineTo(ax+4,GROUND_Y-8); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = c.qColor; ctx.font = 'italic bold 12px serif'; ctx.textAlign = 'left';
+  ctx.fillText(`q = ${st.q} kPa`, SOIL_LEFT+6, ry-5);
+}
+
+// ── Soil block ────────────────────────────────────────────────────────────────
+function drawSoilBlock(c){
+  ctx.fillStyle = c.soilFill; ctx.fillRect(SOIL_LEFT,GROUND_Y,SOIL_RIGHT-SOIL_LEFT,FOOT_Y-GROUND_Y);
+  ctx.save(); ctx.strokeStyle = c.soilHatch; ctx.lineWidth = 0.6; ctx.globalAlpha = 0.45;
+  ctx.beginPath();
+  for (let x=SOIL_LEFT;x<SOIL_RIGHT+40;x+=18){ ctx.moveTo(x,GROUND_Y); ctx.lineTo(x-40,FOOT_Y); }
+  ctx.stroke(); ctx.globalAlpha = 1; ctx.restore();
+}
+
+// ── Ground line ───────────────────────────────────────────────────────────────
+function drawGroundLine(c){
+  ctx.strokeStyle = c.groundLine; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(WALL_X-FOOT_W/2-10,GROUND_Y); ctx.lineTo(SOIL_RIGHT,GROUND_Y); ctx.stroke();
+  ctx.lineWidth = 0.8; ctx.globalAlpha = 0.45; ctx.beginPath();
+  for (let x=WALL_X-FOOT_W/2-10;x>20;x-=12){ ctx.moveTo(x,GROUND_Y); ctx.lineTo(x-8,GROUND_Y+10); }
+  ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+// ── Wall ──────────────────────────────────────────────────────────────────────
+function drawWall(c, st){
+  const tilt = st.delta * 0.0025;
+  ctx.save(); ctx.translate(WALL_X,FOOT_Y); ctx.rotate(tilt); ctx.translate(-WALL_X,-FOOT_Y);
+  ctx.fillStyle = c.wallFill; ctx.strokeStyle = c.wallStroke; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.rect(WALL_X-WALL_W/2,WALL_TOP,WALL_W,WALL_H); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = c.footing;
+  ctx.beginPath(); ctx.rect(WALL_X-FOOT_W/2,FOOT_Y,FOOT_W,FOOT_H); ctx.fill(); ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = c.textSecondary; ctx.fillStyle = c.textSecondary; ctx.lineWidth = 0.8;
+  const lx = WALL_X-WALL_W/2-28;
+  ctx.beginPath();
+  ctx.moveTo(lx+8,WALL_TOP+4); ctx.lineTo(lx+8,FOOT_Y-4);
+  ctx.moveTo(lx+4,WALL_TOP+4); ctx.lineTo(lx+12,WALL_TOP+4);
+  ctx.moveTo(lx+4,FOOT_Y-4);   ctx.lineTo(lx+12,FOOT_Y-4);
+  ctx.stroke();
+  ctx.font = 'italic 13px serif'; ctx.textAlign = 'center';
+  ctx.fillText('H', lx+8, (WALL_TOP+FOOT_Y)/2+5);
+}
+
+// ── Failure wedge ─────────────────────────────────────────────────────────────
+function drawWedge(c, st){
+  if (st.mode === 'rest' || wedgeProgress <= 0) return;
+  const { phi, mode } = st;
+  const thetaDeg = mode === 'active' ? (45+phi/2) : (45-phi/2);
+  const thetaRad = thetaDeg * Math.PI/180;
+  const ox = SOIL_LEFT, oy = FOOT_Y;
+  const lenFull = Math.min(WALL_H/Math.sin(thetaRad),(SOIL_RIGHT-10-ox)/Math.cos(thetaRad));
+  const lenAnim = lenFull * wedgeProgress;
+  const ex = ox + lenAnim*Math.cos(thetaRad), ey = oy - lenAnim*Math.sin(thetaRad);
+  const color = mode==='active'?c.wedgeStroke.active:c.wedgeStroke.passive;
+  const fill  = mode==='active'?c.wedgeFill.active  :c.wedgeFill.passive;
+  if (wedgeProgress > 0.3){
+    const gx = ox+lenFull*Math.cos(thetaRad), gy = oy-lenFull*Math.sin(thetaRad);
+    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(gx,gy);
+    if (gy <= GROUND_Y+2) ctx.lineTo(SOIL_LEFT,GROUND_Y); else ctx.lineTo(gx,FOOT_Y);
+    ctx.closePath(); ctx.fillStyle=fill; ctx.globalAlpha=wedgeProgress*0.8; ctx.fill(); ctx.globalAlpha=1;
+  }
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=2;
+  ctx.setLineDash([8,5]); ctx.lineDashOffset=-wedgeProgress*80;
+  ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ex,ey); ctx.stroke();
+  ctx.setLineDash([]); ctx.restore();
+  if (wedgeProgress > 0.6){
+    const arcR=38; ctx.save(); ctx.strokeStyle=c.angleArc; ctx.lineWidth=1.5;
+    ctx.globalAlpha=Math.min((wedgeProgress-0.6)/0.4,1);
+    ctx.beginPath(); ctx.arc(ox,oy,arcR,-thetaRad,0); ctx.stroke();
+    ctx.fillStyle=c.angleArc; ctx.font='11px serif'; ctx.textAlign='left';
+    const midA=-thetaRad/2;
+    ctx.fillText(mode==='active'?`45+φ/2=${thetaDeg}°`:`45−φ/2=${thetaDeg}°`,
+      ox+(arcR+8)*Math.cos(midA)+2, oy+(arcR+8)*Math.sin(midA)+4);
+    ctx.globalAlpha=1; ctx.restore();
+  }
+  if (wedgeProgress > 0.85){
+    ctx.save(); ctx.globalAlpha=(wedgeProgress-0.85)/0.15;
+    ctx.fillStyle=color; ctx.font='11px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('Soil failure wedge',Math.min(ex+6,SOIL_RIGHT-100),ey-6);
+    ctx.globalAlpha=1; ctx.restore();
+  }
+}
+
+// ── PRESSURE DIAGRAM ──────────────────────────────────────────────────────────
+function drawPressure(c, st){
+  const { mode, q, c: cVal, qPx, triW, topW, botW,
+          hasNegativeZone, zcFrac, cPxApplied } = st;
+  const col  = mode==='rest'   ? c.pressColor.rest
+             : mode==='active' ? c.pressColor.active
+             :                   c.pressColor.passive;
+  const fill = mode==='rest'   ? c.pressFill.rest
+             : mode==='active' ? c.pressFill.active
+             :                   c.pressFill.passive;
+
+  const px = SOIL_LEFT;
+  const K_sym   = mode==='rest'?'Ko':mode==='active'?'Ka':'Kp';
+  const kqLabel = mode==='rest'?'Ko·q':mode==='active'?'Ka·q':'Kp·q';
+
+  // ── Compute effective top anchor point ────────────────────────────────────
+  // When tension zone exists: diagram starts at zcY (not GROUND_Y),
+  // with width=0 at zcY, width=botW at FOOT_Y — preserving the original slope.
+  const hasTensionZone = mode==='active' && cVal>0 && hasNegativeZone && zcFrac > 0.02;
+  const zcY = GROUND_Y + zcFrac * WALL_H;
+  const diagTopY = hasTensionZone ? zcY : GROUND_Y;
+  const diagTopW = hasTensionZone ? 0   : topW;
+  // botW stays the same regardless — pressure at z=H is always botW
+
+  // ── Tension crack zone indicator (above zcY) ──────────────────────────────
+  if (hasTensionZone){
+    ctx.save();
+    // Hatched bar along wall face showing zero-pressure zone
+    ctx.fillStyle = c.cFill;
+    ctx.fillRect(px, GROUND_Y, 10, zcFrac * WALL_H);
+    // Horizontal dashed line at zc
+    ctx.strokeStyle = c.cColor; ctx.lineWidth = 1.2; ctx.setLineDash([5,4]);
+    ctx.beginPath(); ctx.moveTo(px, zcY); ctx.lineTo(px + botW + 28, zcY); ctx.stroke();
+    ctx.setLineDash([]);
+    // zc label
+    ctx.fillStyle = c.cColor; ctx.font = 'italic 11px serif'; ctx.textAlign = 'left';
+    ctx.fillText('z\u2080 (tension crack)', px + 14, zcY - 4);
+    ctx.restore();
+  }
+
+  // ── Main pressure triangle/trapezoid ─────────────────────────────────────
+  // Shape: wall face (left edge vertical from diagTopY to FOOT_Y),
+  //        right edge sloped from (px+diagTopW, diagTopY) → (px+botW, FOOT_Y)
+  if (botW > 1) {
+    ctx.beginPath();
+    ctx.moveTo(px,            diagTopY);   // top-left on wall face
+    ctx.lineTo(px + diagTopW, diagTopY);   // top-right (0 if tension zone, topW otherwise)
+    ctx.lineTo(px + botW,     FOOT_Y);     // bottom-right (full pressure)
+    ctx.lineTo(px,            FOOT_Y);     // bottom-left on wall face
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  // ── q overlay rectangle (purple tint) ─────────────────────────────────────
+  if (q > 0 && qPx > 2) {
+    const qRectTop = mode==='active' && cVal>0 ? Math.max(0, qPx - cPxApplied) : qPx;
+    const qRectBot = mode==='active' && cVal>0 ? Math.max(0, qPx - cPxApplied) : qPx;
+    // uniform q rectangle (after cohesion shift)
+    const qVisTop = mode==='active' && cVal>0 ? Math.max(0, qPx - cPxApplied) : qPx;
+    const qVisBotCalc = mode==='passive' && cVal>0 ? qPx : qPx; // uniform either way
+    if (qVisTop > 2) {
+      ctx.beginPath();
+      ctx.rect(px, GROUND_Y, qVisTop, WALL_H);
+      ctx.fillStyle = c.qFill; ctx.fill();
+      ctx.strokeStyle = c.qColor; ctx.lineWidth = 1.5; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(px+qVisTop,GROUND_Y); ctx.lineTo(px+qVisTop,FOOT_Y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // ── Cohesion addition (passive) — extra green band at the right ───────────
+  if (mode==='passive' && cVal>0 && cPxApplied>1){
+    // Green band added uniformly on top of the total passive diagram
+    // visually: show a thin green rectangle from (botW-cPxApplied) to (botW) at bottom,
+    // and (topW-cPxApplied) to (topW) at top
+    const cTopLeft = topW - cPxApplied;
+    const cBotLeft = botW - cPxApplied;
+    ctx.beginPath();
+    ctx.moveTo(px + cTopLeft, GROUND_Y);
+    ctx.lineTo(px + topW,     GROUND_Y);
+    ctx.lineTo(px + botW,     FOOT_Y);
+    ctx.lineTo(px + cBotLeft, FOOT_Y);
+    ctx.closePath();
+    ctx.fillStyle = c.cFill; ctx.fill();
+    ctx.strokeStyle = c.cColor; ctx.lineWidth = 1.5; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(px+cTopLeft,GROUND_Y); ctx.lineTo(px+cBotLeft,FOOT_Y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ── Cohesion subtraction indicator (active) — show what was removed ───────
+  if (mode==='active' && cVal>0 && cPxApplied>4){
+    // Show a dashed outline of where the diagram would be without cohesion
+    const origTop = qPx;
+    const origBot = qPx + triW;
+    ctx.save();
+    ctx.strokeStyle = c.cColor; ctx.lineWidth = 1.2; ctx.setLineDash([4,3]); ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(px,        GROUND_Y);
+    ctx.lineTo(px+origTop,GROUND_Y);
+    ctx.lineTo(px+origBot,FOOT_Y);
+    ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.restore();
+  }
+
+  // ── Horizontal arrows ─────────────────────────────────────────────────────
+  const N = 7;
+  for (let i=1;i<=N;i++){
+    const frac = i/(N+1);
+    const ay   = GROUND_Y + frac*WALL_H;
+    // Skip if above tension crack line
+    if (hasTensionZone && ay < zcY) continue;
+    // Interpolate width along the actual diagram shape:
+    // from (diagTopY, diagTopW) → (FOOT_Y, botW)
+    const diagH = FOOT_Y - diagTopY;
+    const fracInDiag = diagH > 0 ? (ay - diagTopY) / diagH : 1;
+    const totalW = diagTopW + (botW - diagTopW) * fracInDiag;
+    if (totalW < 8) continue;
+    const x1 = px+totalW, x2 = px+4;
+    ctx.strokeStyle=col; ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(x1,ay); ctx.lineTo(x2,ay); ctx.stroke();
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.moveTo(x2,ay); ctx.lineTo(x2+8,ay-4); ctx.lineTo(x2+8,ay+4); ctx.closePath(); ctx.fill();
+    // q highlight portion
+    if (q>0 && qPx>6){
+      const qEnd = Math.max(0, mode==='active'&&cVal>0 ? qPx-cPxApplied : qPx);
+      if (qEnd > 8){
+        ctx.strokeStyle=c.qColor; ctx.lineWidth=1.8;
+        ctx.beginPath(); ctx.moveTo(px+qEnd,ay); ctx.lineTo(x2+8,ay); ctx.stroke();
+      }
+    }
+    // Cohesion green highlight (passive addition)
+    if (mode==='passive' && cVal>0 && cPxApplied>4){
+      const cStart = topW + (botW-topW)*frac - cPxApplied;
+      if (cStart > 4){
+        ctx.strokeStyle=c.cColor; ctx.lineWidth=1.8;
+        ctx.beginPath(); ctx.moveTo(px+cStart,ay); ctx.lineTo(px+totalW,ay); ctx.stroke();
+      }
+    }
+  }
+
+  // ── Top label: K·q (if q>0 and visible) ──────────────────────────────────
+  if (q>0 && topW>4){
+    ctx.fillStyle=c.qColor; ctx.font='italic 11px serif'; ctx.textAlign='left';
+    ctx.fillText(kqLabel, px+topW+5, GROUND_Y+14);
+  }
+
+  // ── Cohesion label at top (active: shows reduction; passive: addition) ────
+  if (cVal>0 && mode!=='rest'){
+    const cLabelX = mode==='active'
+      ? px + Math.max(0,qPx-cPxApplied) + 4
+      : px + topW - cPxApplied + 4;
+    const cText = mode==='active' ? `−2c√Ka` : `+2c√Kp`;
+    ctx.fillStyle=c.cColor; ctx.font='italic 11px serif'; ctx.textAlign='left';
+    ctx.fillText(cText, Math.min(cLabelX, CW-80), GROUND_Y+28);
+  }
+
+  // ── Bottom label: total pressure at z=H (symbolic) ───────────────────────
+  let botLabel;
+  if (mode === 'rest') {
+    botLabel = q > 0 ? `Ko·q + Ko·γ·H` : `Ko·γ·H`;
+  } else if (mode === 'active') {
+    if (q > 0 && cVal > 0)      botLabel = `Ka·q + Ka·γ·H − 2c√Ka`;
+    else if (q > 0)             botLabel = `Ka·q + Ka·γ·H`;
+    else if (cVal > 0)          botLabel = `Ka·γ·H − 2c√Ka`;
+    else                        botLabel = `Ka·γ·H`;
+  } else { // passive
+    if (q > 0 && cVal > 0)      botLabel = `Kp·q + Kp·γ·H + 2c√Kp`;
+    else if (q > 0)             botLabel = `Kp·q + Kp·γ·H`;
+    else if (cVal > 0)          botLabel = `Kp·γ·H + 2c√Kp`;
+    else                        botLabel = `Kp·γ·H`;
+  }
+
+  const lblX = Math.min(px + botW + 8, CW-150);
+  ctx.fillStyle=col; ctx.font='bold italic 12px serif'; ctx.textAlign='left';
+  ctx.fillText(botLabel, lblX, FOOT_Y - 8);
+  // tick
+  ctx.strokeStyle=col; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(px+botW,FOOT_Y); ctx.lineTo(px+botW+5,FOOT_Y); ctx.stroke();
+}
+
+// ── ΔH arrow ──────────────────────────────────────────────────────────────────
+function drawDeltaArrow(c, st){
+  if (st.delta===0) return;
+  const dir=st.delta>0?1:-1, arrowL=Math.min(Math.abs(st.delta)*0.55,50);
+  const cx=WALL_X, ty=WALL_TOP-26;
+  ctx.save(); ctx.strokeStyle=c.deltaArrow; ctx.fillStyle=c.deltaArrow; ctx.lineWidth=2.5;
+  ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(cx,ty); ctx.lineTo(cx+dir*arrowL,ty); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(cx+dir*arrowL,ty); ctx.lineTo(cx+dir*(arrowL-9),ty-5); ctx.lineTo(cx+dir*(arrowL-9),ty+5); ctx.closePath(); ctx.fill();
+  ctx.font='600 12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText((st.delta>0?'+':'')+st.delta+' mm', cx+dir*(arrowL/2), ty-10);
+  ctx.restore();
+}
+
+// ── Mode label ────────────────────────────────────────────────────────────────
+function drawModeLabel(c, st){
+  const map={
+    rest:    {text:'AT-REST CONDITION', color:c.pressColor.rest,    f:'Ko = 1 − sin φ'},
+    active:  {text:'ACTIVE CONDITION',  color:c.pressColor.active,  f:'Ka = tan²(45 − φ/2)'},
+    passive: {text:'PASSIVE CONDITION', color:c.pressColor.passive, f:'Kp = tan²(45 + φ/2)'},
+  };
+  const {text, color, f} = map[st.mode];
+  ctx.fillStyle=color; ctx.font='700 13px sans-serif'; ctx.textAlign='left'; ctx.fillText(text,16,30);
+  ctx.fillStyle=c.textSecondary; ctx.font='11px monospace'; ctx.fillText(f,16,46);
+  let line2='';
+  if (st.q>0){
+    const kq=st.mode==='rest'?'Ko·q':st.mode==='active'?'Ka·q':'Kp·q';
+    line2 += `+ ${kq}  `;
+  }
+  if (st.c>0 && st.mode==='active')  line2 += `− 2c√Ka (c=${st.c} kPa)`;
+  if (st.c>0 && st.mode==='passive') line2 += `+ 2c√Kp (c=${st.c} kPa)`;
+  if (line2){
+    ctx.fillStyle = st.c>0 ? c.cColor : c.qColor;
+    ctx.fillText(line2.trim(), 16, 62);
+  }
+}
+
+// ── Main draw ─────────────────────────────────────────────────────────────────
+function draw(){
+  const c=getColors(), st=getState();
+  canvas.width=CW; canvas.height=CH;
+  drawBackground(c);
+  drawSurchargeBlock(c,st);
+  drawSoilBlock(c);
+  drawGroundLine(c);
+  drawWedge(c,st);
+  drawWall(c,st);
+  drawPressure(c,st);
+  drawDeltaArrow(c,st);
+  drawModeLabel(c,st);
+
+  // ── Update UI ──────────────────────────────────────────────────────────────
+  const {Ko,Ka,Kp,q,c:cVal,mode,sqrtKa,sqrtKp} = st;
+  document.getElementById('val-ko').textContent = Ko.toFixed(3);
+  document.getElementById('val-ka').textContent = Ka.toFixed(3);
+  document.getElementById('val-kp').textContent = Kp.toFixed(3);
+  document.getElementById('deltaDisplay').textContent = st.delta+' mm';
+  document.getElementById('phiDisplay').textContent   = st.phi+'°';
+  document.getElementById('qDisplay').textContent     = q+' kPa';
+  document.getElementById('cDisplay').textContent     = cVal+' kPa';
+  document.getElementById('badge-q').textContent      = q>0?`q = ${q} kPa`:'q = 0';
+  document.getElementById('badge-c').textContent      = cVal>0?`c = ${cVal} kPa`:'c = 0';
+
+  // Extra info per card
+  const qKo = q>0?`Ko·q = +${(Ko*q).toFixed(1)} kPa`:'';
+  const qKa = q>0?`Ka·q = +${(Ka*q).toFixed(1)} kPa`:'';
+  const qKp = q>0?`Kp·q = +${(Kp*q).toFixed(1)} kPa`:'';
+  document.getElementById('extra-ko').textContent = qKo;
+  document.getElementById('extra-ko').style.color = 'var(--surcharge)';
+
+  const cKa = cVal>0?`−2c√Ka = −${(2*cVal*sqrtKa).toFixed(1)} kPa`:'';
+  const cKp = cVal>0?`+2c√Kp = +${(2*cVal*sqrtKp).toFixed(1)} kPa`:'';
+  document.getElementById('extra-ka').textContent = [qKa,cKa].filter(Boolean).join('  ');
+  document.getElementById('extra-kp').textContent = [qKp,cKp].filter(Boolean).join('  ');
+
+  // Formula box
+  const fBox = document.getElementById('formula-box');
+  let lines = [];
+  if (mode==='active'){
+    lines.push(`σ'h (active) = Ka·γ·z${q>0?' + Ka·q':''}${cVal>0?' − 2c·√Ka':''}`);
+    if (cVal>0) lines.push(`             → clamp to 0 when negative (tension crack)`);
+    if (cVal>0) lines.push(`Tension crack depth zc ≈ (2c/γ)·(1/√Ka)${q>0?' adjusted for q':''}`);
+  } else if (mode==='passive'){
+    lines.push(`σ'h (passive) = Kp·γ·z${q>0?' + Kp·q':''}${cVal>0?' + 2c·√Kp':''}`);
+  } else {
+    lines.push(`σ'h (at-rest) = Ko·γ·z${q>0?' + Ko·q':''}`);
+  }
+  fBox.innerHTML = lines.map(l=>`<div>${l}</div>`).join('');
+
+  ['ko','ka','kp'].forEach(k=>document.getElementById('badge-'+k).classList.remove('active'));
+  document.getElementById('badge-'+(mode==='rest'?'ko':mode==='active'?'ka':'kp')).classList.add('active');
+}
+
+// ── Wedge animation ───────────────────────────────────────────────────────────
+function animateWedge(ts){
+  if (!lastTime) lastTime=ts;
+  const dt=(ts-lastTime)/1000; lastTime=ts;
+  const spd=1.8;
+  if (wedgeProgress<wedgeTarget) wedgeProgress=Math.min(wedgeProgress+spd*dt,wedgeTarget);
+  else if (wedgeProgress>wedgeTarget) wedgeProgress=Math.max(wedgeProgress-spd*dt*2,wedgeTarget);
+  draw();
+  if (Math.abs(wedgeProgress-wedgeTarget)>0.005) rafId=requestAnimationFrame(animateWedge);
+  else { wedgeProgress=wedgeTarget; draw(); rafId=null; }
+}
+function triggerWedge(mode){
+  lastTime=null;
+  wedgeTarget=mode==='rest'?0:Math.min(Math.abs(parseInt(document.getElementById('deltaSlider').value))/80,1);
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId=requestAnimationFrame(animateWedge);
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+document.getElementById('deltaSlider').addEventListener('input',()=>{ const s=getState(); triggerWedge(s.mode); if(!rafId) draw(); });
+document.getElementById('phiSlider').addEventListener('input', draw);
+document.getElementById('qSlider').addEventListener('input', draw);
+document.getElementById('cSlider').addEventListener('input', draw);
+
+let dragging=false, dragStartX=0, dragStartDelta=0;
+canvas.addEventListener('mousedown', e=>{ dragging=true; dragStartX=e.clientX; dragStartDelta=parseInt(document.getElementById('deltaSlider').value); });
+canvas.addEventListener('mousemove', e=>{ if(!dragging) return; document.getElementById('deltaSlider').value=Math.max(-80,Math.min(80,dragStartDelta+Math.round((e.clientX-dragStartX)*0.9))); const s=getState(); triggerWedge(s.mode); if(!rafId) draw(); });
+canvas.addEventListener('mouseup',   ()=>dragging=false);
+canvas.addEventListener('mouseleave',()=>dragging=false);
+canvas.addEventListener('touchstart', e=>{ dragging=true; dragStartX=e.touches[0].clientX; dragStartDelta=parseInt(document.getElementById('deltaSlider').value); e.preventDefault(); },{passive:false});
+canvas.addEventListener('touchmove',  e=>{ if(!dragging) return; document.getElementById('deltaSlider').value=Math.max(-80,Math.min(80,dragStartDelta+Math.round((e.touches[0].clientX-dragStartX)*0.9))); const s=getState(); triggerWedge(s.mode); if(!rafId) draw(); e.preventDefault(); },{passive:false});
+canvas.addEventListener('touchend',  ()=>dragging=false);
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', draw);
+
+draw();
+</script>
+</body>
+</html>
